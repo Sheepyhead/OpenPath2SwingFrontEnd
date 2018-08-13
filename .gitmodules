@@ -1,0 +1,3 @@
+[submodule "External/Open-Path-2-Project"]
+	path = External/Open-Path-2-Project
+	url = git@github.com:willuwontu/Open-Path-2-Project.git
