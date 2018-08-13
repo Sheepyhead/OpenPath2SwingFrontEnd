@@ -34,10 +34,6 @@ public class JSONTreeModelTest {
 
         assertThat(firstRootChild, instanceOf(JSONKeyValuePair.class));
         assertThat(secondRootChild, instanceOf(JSONKeyValuePair.class));
-
-        JSONKeyValuePair firstRootPair = (JSONKeyValuePair) firstRootChild;
-        JSONKeyValuePair secondRootPair = (JSONKeyValuePair) secondRootChild;
-
     }
 
     @Test
