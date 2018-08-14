@@ -1,11 +1,14 @@
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
+
 import javax.swing.event.TreeModelEvent;
 import javax.swing.event.TreeModelListener;
+import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreeModel;
 import javax.swing.tree.TreePath;
 import java.io.FileReader;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,19 +40,23 @@ public class JSONTreeModel implements TreeModel {
         if (rootObject.keySet().size() == 1) {
             root = (String) rootObject.keySet().iterator().next();
         } else {
-            root = "";
+            root = "Database";
         }
 
         notifyListeners(new TreeModelEvent(this, new Object[]{rootObject}), ChangeType.StructureChanged);
     }
 
     @Override
-    public String getRoot() {
-        return root;
+    public DefaultMutableTreeNode getRoot() {
+        return new JSONMutableNode(rootObject);
     }
 
     @Override
-    public Object getChild(Object parentObject, int index) {
+    public DefaultMutableTreeNode getChild(Object parentObject, int index) {
+        if (parentObject instanceof JSONMutableNode) parentObject = ((JSONMutableNode) parentObject).getUserObject();
+        if (parentObject instanceof KeyValuePair) parentObject = ((KeyValuePair) parentObject).getValue();
+        if (parentObject instanceof JSONMutableNode) parentObject = ((JSONMutableNode) parentObject).getUserObject();
+
         if (parentObject instanceof String) {
             String parent = (String) parentObject;
 
@@ -62,10 +69,10 @@ public class JSONTreeModel implements TreeModel {
                         continue;
                     }
 
-                    return new JSONKeyValuePair((String) keyObject, rootObject.get(keyObject));
+                    return new JSONMutableNode(keyObject);
                 }
             } else {
-                Object currentObject = getNode(parent);
+                Object currentObject = rootObject.getOrDefault(parent, null);
 
                 if (currentObject instanceof JSONObject) {
                     JSONObject current = (JSONObject) currentObject;
@@ -76,12 +83,12 @@ public class JSONTreeModel implements TreeModel {
                             continue;
                         }
 
-                        return new JSONKeyValuePair((String) keyObject, current.get(keyObject));
+                        return new JSONMutableNode(keyObject);
                     }
                 } else if (currentObject instanceof JSONArray) {
                     JSONArray current = (JSONArray) currentObject;
 
-                    return current.get(index);
+                    return new JSONMutableNode(current.get(index));
 
                 } else {
                     throw new UnsupportedOperationException("Final child found is not JSONObject but instead " + currentObject.getClass().getName());
@@ -92,7 +99,7 @@ public class JSONTreeModel implements TreeModel {
             JSONArray parent = (JSONArray) parentObject;
             if (index < 0 || index >= parent.size()) return null;
 
-            return parent.get(index);
+            return new JSONMutableNode(parent.get(index));
         } else if (parentObject instanceof JSONObject) {
             JSONObject parent = (JSONObject) parentObject;
 
@@ -103,7 +110,7 @@ public class JSONTreeModel implements TreeModel {
                     continue;
                 }
 
-                return new JSONKeyValuePair((String) keyObject, parent.get(keyObject));
+                return new JSONMutableNode(new KeyValuePair<>((String)keyObject, new JSONMutableNode(parent.get(keyObject))));
             }
         } else {
             throw new UnsupportedOperationException("Finding child of type " + parentObject.getClass().getName() + " not implemented!");
@@ -111,42 +118,30 @@ public class JSONTreeModel implements TreeModel {
         return null;
     }
 
+    public DefaultMutableTreeNode getChild(Object parentObject, String key) {
+        if (parentObject instanceof JSONMutableNode) parentObject = ((JSONMutableNode) parentObject).getUserObject();
+        if (parentObject instanceof KeyValuePair) parentObject = ((KeyValuePair) parentObject).getValue();
+        if (parentObject instanceof JSONMutableNode) parentObject = ((JSONMutableNode) parentObject).getUserObject();
+        if (!(parentObject instanceof JSONObject)) return null;
+        JSONObject parent = (JSONObject)parentObject;
+
+        return new JSONMutableNode(parent.get(key));
+    }
+
     @Override
     public int getChildCount(Object parent) {
-        if (parent instanceof String) {
-            Object node = getNode((String) parent);
-            if (node instanceof JSONArray) return ((JSONArray) node).size();
-            if (node instanceof JSONObject) return ((JSONObject) node).size();
-        } else if (parent instanceof JSONObject) {
+        if (parent instanceof JSONMutableNode) parent = ((JSONMutableNode) parent).getUserObject();
+        if (parent instanceof KeyValuePair) parent = ((KeyValuePair) parent).getValue();
+        if (parent instanceof JSONMutableNode) parent = ((JSONMutableNode) parent).getUserObject();
+        if (parent instanceof JSONObject) {
             return ((JSONObject) parent).size();
         } else if (parent instanceof JSONArray) {
             return ((JSONArray) parent).size();
         } else {
+            if (parent == null) System.out.println("Tried to get child count of null");
+            else System.out.println("Tried to get child count of type " + parent.getClass().getName());
             return 0;
         }
-        return 0;
-    }
-
-    private Object getNode(String path) {
-        if (path.equals(root)) {
-            return rootObject;
-        }
-
-        String[] strings = path.split("\\.");
-        Object currentObject = rootObject;
-        for (int i = 0; i < strings.length; i++) {
-            if (currentObject instanceof JSONObject) {
-                JSONObject current = (JSONObject) currentObject;
-                currentObject = current.getOrDefault(strings[i], null);
-            } else {
-                if (currentObject == null)
-                    throw new UnsupportedOperationException("Value " + path + " not found! Child " + strings[i] + " not found under " + strings[i - 1]);
-
-                throw new UnsupportedOperationException("Attempted to get value from non-rootObject");
-            }
-        }
-
-        return currentObject;
     }
 
     @Override
@@ -162,16 +157,17 @@ public class JSONTreeModel implements TreeModel {
     @Override
     public int getIndexOfChild(Object parentObject, Object child) {
         JSONObject parent = null;
-        if (child instanceof JSONKeyValuePair) child = ((JSONKeyValuePair)child).value;
 
+        if (parentObject instanceof JSONMutableNode) parentObject = ((JSONMutableNode) parentObject).getUserObject();
+        if (parentObject instanceof KeyValuePair) parentObject = ((KeyValuePair) parentObject).getValue();
+        if (parentObject instanceof JSONMutableNode) parentObject = ((JSONMutableNode) parentObject).getUserObject();
+
+        if (child instanceof JSONMutableNode) child = ((JSONMutableNode) child).getUserObject();
+        if (child instanceof KeyValuePair) child = ((KeyValuePair) child).getKey();
         if (parentObject instanceof JSONObject) {
             parent = (JSONObject) parentObject;
         }
-        if (parentObject instanceof String && getNode((String)parentObject) instanceof JSONObject) {
-            parent = (JSONObject)getNode((String) parentObject);
-        }
-        if (parent != null)
-        {
+        if (parent != null) {
             int currentIndex = 0;
             for (Object keyObject : parent.keySet()) {
                 if (child.equals(keyObject) || child.equals(parent.get(keyObject))) return currentIndex;
@@ -182,10 +178,7 @@ public class JSONTreeModel implements TreeModel {
 
         JSONArray parentArray = null;
         if (parentObject instanceof JSONArray) {
-            parentArray = (JSONArray)parentObject;
-        }
-        if (parentObject instanceof String && getNode((String)parentObject) instanceof JSONArray){
-            parentArray = (JSONArray)getNode((String)parentObject);
+            parentArray = (JSONArray) parentObject;
         }
         if (parentArray != null) {
             int currentIndex = 0;
@@ -195,7 +188,6 @@ public class JSONTreeModel implements TreeModel {
             }
         }
 
-        if (parentObject instanceof String) throw new UnsupportedOperationException("Finding index of child not supported for type " + getNode((String) parentObject).getClass().getName());
         throw new UnsupportedOperationException("Finding index of child not supported for type " + parentObject.getClass());
     }
 
