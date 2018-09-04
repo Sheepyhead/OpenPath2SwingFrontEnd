@@ -5,6 +5,7 @@ import org.junit.Test;
 
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.junit.Assert.*;
 
 /**
@@ -21,65 +22,45 @@ public class JSONTreeModelTest {
     }
 
     @Test
-    public void getRootReturnsEmptyStringWithMultipleJSONKeys() {
-        Object obj = model.getRoot();
-
-        assertThat(obj, is(""));
-    }
-
-    @Test
     public void getChildCanReturnObjectsFromRoot() {
-        Object firstRootChild = model.getChild(model.getRoot(), 0);
-        Object secondRootChild = model.getChild(model.getRoot(), 1);
+        Object firstRootChild = model.getChild(0);
+        Object secondRootChild = model.getChild(1);
 
-        assertThat(firstRootChild, instanceOf(JSONKeyValuePair.class));
-        assertThat(secondRootChild, instanceOf(JSONKeyValuePair.class));
+        assertThat(firstRootChild, instanceOf(JSONMutableTreeNode.class));
+        assertThat(secondRootChild, instanceOf(JSONMutableTreeNode.class));
     }
 
     @Test
     public void getChildCanReturnSpecificObjects() {
-        Object actionObject = model.getChild("Actions", 0);
-        assertThat(actionObject, instanceOf(JSONObject.class));
-        JSONObject action = (JSONObject) actionObject;
+        JSONMutableTreeNode action = model.getChild("Actions").getChild(0);
 
-        assertThat(action.get("Type"), is("Action"));
-        assertThat(action.get("Name"), is("Quick Alchemy"));
-        assertThat(action.get("Action"), is(1L));
+        assertThat(action.getChild("Type").getAsString(), is("Action"));
+        assertThat(action.getChild("Name").getAsString(), is("Quick Alchemy"));
+        assertThat(action.getChild("Action").getAsLong(), is(1L));
 
-        Object classFeatureObject = model.getChild("Class Features", 0);
-        assertThat(classFeatureObject, instanceOf(JSONObject.class));
-        JSONObject classFeature = (JSONObject) classFeatureObject;
+        JSONMutableTreeNode classFeature = model.getChild("Class Features").getChild(0);
 
-        assertThat(classFeature.get("Type"), is("Class Feature"));
-        assertThat(classFeature.get("Name"), is("Advanced Alchemy"));
-        assertThat(classFeature.get("Info"), instanceOf(JSONObject.class));
-        assertThat(((JSONObject) classFeature.get("Info")).get("Actions"), instanceOf(JSONArray.class));
-        assertThat(((JSONArray) ((JSONObject) classFeature.get("Info")).get("Actions")).size(), is(1));
+        assertThat(classFeature.getChild("Type").getAsString(), is("Class Feature"));
+        assertThat(classFeature.getChild("Name").getAsString(), is("Advanced Alchemy"));
+        assertThat(classFeature.getChild("Info").getAsObject(), notNullValue());
+        assertThat(classFeature.getChild("Info").getChild("Actions").getAsArray(), notNullValue());
+        assertThat(classFeature.getChild("Info").getChild("Actions").getChildCount(), is(1));
     }
 
     @Test
     public void getChildCanReturnSpecificObjectsFromJSONObject() {
-        Object actionObject = model.getChild("Actions", 0);
-        assertThat(actionObject, instanceOf(JSONObject.class));
-        JSONObject action = (JSONObject) actionObject;
+        JSONMutableTreeNode actionCost = model.getChild("Actions").getChild(0).getChild("Cost").getChild(0);
 
-        Object specificActionObject = model.getChild(action.get("Cost"), 0);
+        assertThat(actionCost.getChild("Type").getAsString(), is("Resonance"));
+        assertThat(actionCost.getChild("Amount").getAsLong(), is(1L));
 
-        assertThat(specificActionObject, instanceOf(JSONObject.class));
-        JSONObject specificAction = (JSONObject) specificActionObject;
-        assertThat(specificAction.get("Type"), is("Resonance"));
-        assertThat(specificAction.get("Amount"), is(1L));
-
-        Object randomObjectInAction = model.getChild(action, 2);
-
-        assertThat(randomObjectInAction, instanceOf(JSONKeyValuePair.class));
     }
 
     @Test
     public void getChildCountCanCountChildrenOfString() {
-        int rootCount = model.getChildCount(""),
-                classCount = model.getChildCount("Classes"),
-                classFeatureCount = model.getChildCount("Class Features");
+        int rootCount = model.getChildCount(),
+                classCount = model.getChild("Classes").getChildCount(),
+                classFeatureCount = model.getChild("Class Features").getChildCount();
 
         assertThat(rootCount, is(14));
         assertThat(classCount, is(12));
@@ -88,8 +69,8 @@ public class JSONTreeModelTest {
 
     @Test
     public void getChildCountCanCountChildrenOfObject() {
-        int specificClassCount = model.getChildCount(model.getChild("Classes", 0)),
-                specificLeaf = model.getChildCount(((JSONObject) model.getChild("Classes", 0)).get("Type"));
+        int specificClassCount = model.getChild("Classes").getChild(0).getChildCount(),
+                specificLeaf = model.getChild("Classes").getChild(0).getChild("Type").getChildCount();
 
         assertThat(specificClassCount, is(3));
         assertThat(specificLeaf, is(0));
@@ -97,9 +78,9 @@ public class JSONTreeModelTest {
 
     @Test
     public void isLeaf() {
-        boolean rootIsLeaf = model.isLeaf(""),
-                actionsIsLeaf = model.isLeaf("Actions"),
-                classLeafIsLeaf = model.isLeaf(((JSONObject) model.getChild("Classes", 0)).get("Type"));
+        boolean rootIsLeaf = model.isLeaf(),
+                actionsIsLeaf = model.getChild("Actions").isLeaf(),
+                classLeafIsLeaf = model.getChild("Classes").getChild(0).getChild("Type").isLeaf();
 
         assertThat(rootIsLeaf, is(false));
         assertThat(actionsIsLeaf, is(false));
@@ -108,8 +89,8 @@ public class JSONTreeModelTest {
 
     @Test
     public void getIndexOfChild() {
-        int index = model.getIndexOfChild("General", model.getChild("General", 0)),
-                backgroundIndex = model.getIndexOfChild("Backgrounds", model.getChild("Backgrounds", 6));
+        int index = model.getIndexOfChild(model.getChild("General"), model.getChild("General").getChild(0)),
+                backgroundIndex = model.getIndexOfChild(model.getChild("Backgrounds"), model.getChild("Backgrounds").getChild(6));
 
         assertThat(index, is(0));
         assertThat(backgroundIndex, is(6));
