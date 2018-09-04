@@ -82,8 +82,8 @@ public class JSONTreeModelTest {
 
     @Test
     public void getChildCountCanCountChildrenOfObject() {
-        int specificClassCount = model.getChildCount(model.getChild(model.getChild(model.getRoot(), "Classes"), 0)),
-                specificLeaf = model.getChildCount(model.getChild(model.getChild(model.getChild(model.getRoot(), "Classes"), 0), "Type"));
+        int specificClassCount = model.getChild("Classes").getChild(0).getChildCount(),
+                specificLeaf = model.getChild("Classes").getChild(0).getChild("Type").getChildCount()
 
         assertThat(specificClassCount, is(3));
         assertThat(specificLeaf, is(0));
