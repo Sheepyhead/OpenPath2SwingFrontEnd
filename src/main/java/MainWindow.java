@@ -22,6 +22,7 @@ public class MainWindow extends JPanel {
 
         JSONTreeModel treeModel = new JSONTreeModel(System.getProperty("user.dir") + "/External/Open-Path-2-Project/Data/Master List.json");
         mainTree.setModel(treeModel);
+        mainTree.setCellRenderer(new JSONTreeCellRenderer());
     }
 
     public static void main(String[] args) {

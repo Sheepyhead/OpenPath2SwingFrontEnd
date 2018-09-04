@@ -3,6 +3,8 @@ import org.json.simple.JSONObject;
 import org.junit.Before;
 import org.junit.Test;
 
+import javax.swing.tree.DefaultMutableTreeNode;
+
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
@@ -70,7 +72,7 @@ public class JSONTreeModelTest {
     @Test
     public void getChildCountCanCountChildrenOfObject() {
         int specificClassCount = model.getChild("Classes").getChild(0).getChildCount(),
-                specificLeaf = model.getChild("Classes").getChild(0).getChild("Type").getChildCount();
+                specificLeaf = model.getChild("Classes").getChild(0).getChild("Type").getChildCount()
 
         assertThat(specificClassCount, is(3));
         assertThat(specificLeaf, is(0));

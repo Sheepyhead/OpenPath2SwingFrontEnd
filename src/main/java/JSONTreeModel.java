@@ -1,5 +1,5 @@
-
 import javax.swing.event.TreeModelListener;
+import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreeModel;
 import javax.swing.tree.TreeNode;
 import javax.swing.tree.TreePath;
@@ -44,6 +44,16 @@ public class JSONTreeModel implements TreeModel {
         }
 
         return ((JSONMutableTreeNode)parent).getChildAt(index);
+    }
+
+    public DefaultMutableTreeNode getChild(Object parentObject, String key) {
+        if (parentObject instanceof JSONMutableNode) parentObject = ((JSONMutableNode) parentObject).getUserObject();
+        if (parentObject instanceof KeyValuePair) parentObject = ((KeyValuePair) parentObject).getValue();
+        if (parentObject instanceof JSONMutableNode) parentObject = ((JSONMutableNode) parentObject).getUserObject();
+        if (!(parentObject instanceof JSONObject)) return null;
+        JSONObject parent = (JSONObject)parentObject;
+
+        return new JSONMutableNode(parent.get(key));
     }
 
     @Override
