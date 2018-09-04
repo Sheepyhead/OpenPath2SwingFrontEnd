@@ -1,11 +1,6 @@
-
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-
 import javax.swing.*;
 import javax.swing.tree.DefaultMutableTreeNode;
 import java.awt.*;
-import java.io.FileReader;
 
 /**
  * Created by Troels "Sheepyhead" Jessen on 2018-08-13.
@@ -22,7 +17,6 @@ public class MainWindow extends JPanel {
 
         JSONTreeModel treeModel = new JSONTreeModel(System.getProperty("user.dir") + "/External/Open-Path-2-Project/Data/Master List.json");
         mainTree.setModel(treeModel);
-        mainTree.setCellRenderer(new JSONTreeCellRenderer());
     }
 
     public static void main(String[] args) {
