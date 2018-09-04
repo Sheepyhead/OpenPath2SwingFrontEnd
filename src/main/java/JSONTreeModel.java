@@ -1,8 +1,14 @@
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
 
+import javax.swing.event.TreeModelEvent;
 import javax.swing.event.TreeModelListener;
+import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreeModel;
-import javax.swing.tree.TreeNode;
 import javax.swing.tree.TreePath;
+import java.io.FileReader;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -12,76 +18,177 @@ import java.util.List;
  */
 public class JSONTreeModel implements TreeModel {
 
-    JSONMutableTreeNode rootNode;
+    private JSONObject rootObject;
+
+    private String root;
 
     private List<TreeModelListener> listeners;
 
     public JSONTreeModel(String path) {
+        super();
         listeners = new ArrayList<>();
-        rootNode = new JSONMutableTreeNode(path);
-    }
 
-    @Override
-    public Object getRoot() {
-        return rootNode;
-    }
+        JSONParser parser = new JSONParser();
+        try {
+            Object obj = parser.parse(new FileReader(path));
 
-    public JSONMutableTreeNode getRootNode() {
-        return rootNode;
-    }
-
-    public JSONMutableTreeNode getChild(String key) {
-        return rootNode.getChild(key);
-    }
-    public JSONMutableTreeNode getChild(int index) {
-        return rootNode.getChild(index);
-    }
-
-    @Override
-    public Object getChild(Object parent, int index) {
-        if (!(parent instanceof JSONMutableTreeNode)) {
-            throw new UnsupportedOperationException("Cannot get child of non-tree node type " + parent.getClass().getName());
+            rootObject = (JSONObject) obj;
+        } catch (Exception e) {
+            e.printStackTrace();
         }
 
-        return ((JSONMutableTreeNode)parent).getChildAt(index);
+        if (rootObject.keySet().size() == 1) {
+            root = (String) rootObject.keySet().iterator().next();
+        } else {
+            root = "Database";
+        }
+
+        notifyListeners(new TreeModelEvent(this, new Object[]{rootObject}), ChangeType.StructureChanged);
+    }
+
+    @Override
+    public DefaultMutableTreeNode getRoot() {
+        return new JSONMutableNode(rootObject);
+    }
+
+    @Override
+    public DefaultMutableTreeNode getChild(Object parentObject, int index) {
+        if (parentObject instanceof JSONMutableNode) parentObject = ((JSONMutableNode) parentObject).getUserObject();
+        if (parentObject instanceof KeyValuePair) parentObject = ((KeyValuePair) parentObject).getValue();
+        if (parentObject instanceof JSONMutableNode) parentObject = ((JSONMutableNode) parentObject).getUserObject();
+
+        if (parentObject instanceof String) {
+            String parent = (String) parentObject;
+
+            if (parent.equals(root)) {
+                if (index < 0 || index >= rootObject.keySet().size()) return null;
+                int currentIndex = 0;
+                for (Object keyObject : rootObject.keySet()) {
+                    if (currentIndex != index) {
+                        currentIndex++;
+                        continue;
+                    }
+
+                    return new JSONMutableNode(keyObject);
+                }
+            } else {
+                Object currentObject = rootObject.getOrDefault(parent, null);
+
+                if (currentObject instanceof JSONObject) {
+                    JSONObject current = (JSONObject) currentObject;
+                    int currentIndex = 0;
+                    for (Object keyObject : current.keySet()) {
+                        if (currentIndex != index) {
+                            currentIndex++;
+                            continue;
+                        }
+
+                        return new JSONMutableNode(keyObject);
+                    }
+                } else if (currentObject instanceof JSONArray) {
+                    JSONArray current = (JSONArray) currentObject;
+
+                    return new JSONMutableNode(current.get(index));
+
+                } else {
+                    throw new UnsupportedOperationException("Final child found is not JSONObject but instead " + currentObject.getClass().getName());
+
+                }
+            }
+        } else if (parentObject instanceof JSONArray) {
+            JSONArray parent = (JSONArray) parentObject;
+            if (index < 0 || index >= parent.size()) return null;
+
+            return new JSONMutableNode(parent.get(index));
+        } else if (parentObject instanceof JSONObject) {
+            JSONObject parent = (JSONObject) parentObject;
+
+            int currentIndex = 0;
+            for (Object keyObject : parent.keySet()) {
+                if (currentIndex != index) {
+                    currentIndex++;
+                    continue;
+                }
+
+                return new JSONMutableNode(new KeyValuePair<>((String)keyObject, new JSONMutableNode(parent.get(keyObject))));
+            }
+        } else {
+            throw new UnsupportedOperationException("Finding child of type " + parentObject.getClass().getName() + " not implemented!");
+        }
+        return null;
+    }
+
+    public DefaultMutableTreeNode getChild(Object parentObject, String key) {
+        if (parentObject instanceof JSONMutableNode) parentObject = ((JSONMutableNode) parentObject).getUserObject();
+        if (parentObject instanceof KeyValuePair) parentObject = ((KeyValuePair) parentObject).getValue();
+        if (parentObject instanceof JSONMutableNode) parentObject = ((JSONMutableNode) parentObject).getUserObject();
+        if (!(parentObject instanceof JSONObject)) return null;
+        JSONObject parent = (JSONObject)parentObject;
+
+        return new JSONMutableNode(parent.get(key));
     }
 
     @Override
     public int getChildCount(Object parent) {
-        if (!(parent instanceof JSONMutableTreeNode)) {
-            throw new UnsupportedOperationException("Cannot get child of non-JMTN type " + parent.getClass().getName());
+        if (parent instanceof JSONMutableNode) parent = ((JSONMutableNode) parent).getUserObject();
+        if (parent instanceof KeyValuePair) parent = ((KeyValuePair) parent).getValue();
+        if (parent instanceof JSONMutableNode) parent = ((JSONMutableNode) parent).getUserObject();
+        if (parent instanceof JSONObject) {
+            return ((JSONObject) parent).size();
+        } else if (parent instanceof JSONArray) {
+            return ((JSONArray) parent).size();
+        } else {
+            if (parent == null) System.out.println("Tried to get child count of null");
+            else System.out.println("Tried to get child count of type " + parent.getClass().getName());
+            return 0;
         }
-
-        return ((JSONMutableTreeNode)parent).getChildCount();
-
-    }
-
-    public int getChildCount() {
-        return rootNode.getChildCount();
     }
 
     @Override
     public boolean isLeaf(Object node) {
-        if (!(node instanceof TreeNode)) {
-            throw new UnsupportedOperationException("Cannot get leafiness of non-treenode type " + node.getClass().getName());
-        }
-        return ((TreeNode) node).isLeaf();
+        return getChildCount(node) == 0;
     }
 
     @Override
     public void valueForPathChanged(TreePath path, Object newValue) {
-        throw new NotImplementedException();
+        throw new UnsupportedOperationException("Not implemented yet!");
     }
 
     @Override
-    public int getIndexOfChild(Object parent, Object child) {
-        if (!(parent instanceof TreeNode)) {
-            throw new UnsupportedOperationException("Cannot get index of non-treenode parent type " + parent.getClass().getName());
+    public int getIndexOfChild(Object parentObject, Object child) {
+        JSONObject parent = null;
+
+        if (parentObject instanceof JSONMutableNode) parentObject = ((JSONMutableNode) parentObject).getUserObject();
+        if (parentObject instanceof KeyValuePair) parentObject = ((KeyValuePair) parentObject).getValue();
+        if (parentObject instanceof JSONMutableNode) parentObject = ((JSONMutableNode) parentObject).getUserObject();
+
+        if (child instanceof JSONMutableNode) child = ((JSONMutableNode) child).getUserObject();
+        if (child instanceof KeyValuePair) child = ((KeyValuePair) child).getKey();
+        if (parentObject instanceof JSONObject) {
+            parent = (JSONObject) parentObject;
         }
-        if (!(child instanceof TreeNode)) {
-            throw new UnsupportedOperationException("Cannot get index of non-treenode child type " + child.getClass().getName());
+        if (parent != null) {
+            int currentIndex = 0;
+            for (Object keyObject : parent.keySet()) {
+                if (child.equals(keyObject) || child.equals(parent.get(keyObject))) return currentIndex;
+                currentIndex++;
+            }
         }
-        return ((TreeNode)parent).getIndex((TreeNode)child);
+
+
+        JSONArray parentArray = null;
+        if (parentObject instanceof JSONArray) {
+            parentArray = (JSONArray) parentObject;
+        }
+        if (parentArray != null) {
+            int currentIndex = 0;
+            for (Object object : parentArray) {
+                if (object.equals(child)) return currentIndex;
+                currentIndex++;
+            }
+        }
+
+        throw new UnsupportedOperationException("Finding index of child not supported for type " + parentObject.getClass());
     }
 
     @Override
@@ -94,7 +201,29 @@ public class JSONTreeModel implements TreeModel {
         listeners.remove(l);
     }
 
-    public boolean isLeaf() {
-        return rootNode.isLeaf();
+    private enum ChangeType {
+        Changed,
+        Inserted,
+        Removed,
+        StructureChanged
+    }
+
+    private void notifyListeners(TreeModelEvent event, ChangeType type) {
+        for (TreeModelListener listener : listeners) {
+            switch (type) {
+                case Changed:
+                    listener.treeNodesChanged(event);
+                    break;
+                case Inserted:
+                    listener.treeNodesInserted(event);
+                    break;
+                case Removed:
+                    listener.treeNodesRemoved(event);
+                    break;
+                case StructureChanged:
+                    listener.treeStructureChanged(event);
+                    break;
+            }
+        }
     }
 }
